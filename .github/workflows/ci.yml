@@ -1,0 +1,50 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: 安装锁定依赖
+        run: npm ci
+      - name: 检查公开文件范围
+        run: npm run check:public
+      - name: 核心行为测试
+        run: npm test
+      - name: 构建与 Electron 桌面回归
+        run: npm run test:e2e
+      - name: 构建独立 Windows 目录
+        run: npm run pack:win
+      - name: 检查实际打包应用
+        run: npm run test:packaged
+      - name: 保存失败时的测试截图
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-test-screenshots
+          path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 7

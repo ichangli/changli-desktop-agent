@@ -1,0 +1,25 @@
+appId: io.github.lchangli.changli-desktop-agent
+productName: 长离桌面助手
+directories:
+  output: release
+electronDist: node_modules/electron/dist
+asar: true
+files:
+  - out/**
+  - package.json
+  - LICENSE
+  - THIRD_PARTY_NOTICES.md
+extraResources:
+  - from: prompts/changli.md
+    to: prompts/changli.md
+win:
+  target:
+    - target: zip
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: changli-desktop-agent-${version}-win-${arch}.${ext}
+  signExecutable: false
+portable:
+  artifactName: changli-desktop-agent-${version}-win-${arch}-portable.${ext}
+publish: null

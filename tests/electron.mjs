@@ -1,0 +1,199 @@
+import { _electron as electron, expect } from '@playwright/test'
+import { mkdtempSync, mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { createServer } from 'node:http'
+
+const dir = mkdtempSync(join(tmpdir(), 'changli-electron-'))
+const env = { ...process.env, CHANGLI_DATA_DIR: dir }
+delete env.ELECTRON_RUN_AS_NODE
+let app
+const issues = []
+const server = createServer((req, res) => {
+  if (req.url === '/unauthorized') { res.writeHead(401); res.end('PRIVATE_SERVICE_RESPONSE'); return }
+  res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+  res.end('data: {"choices":[{"delta":{"content":"协议测试回复（本机夹具）"}}]}\n\ndata: [DONE]\n\n')
+})
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+const endpoint = `http://127.0.0.1:${server.address().port}`
+async function launch() {
+  app = await electron.launch({ args: [resolve('out/main/index.js')], env })
+  const page = await app.firstWindow()
+  page.on('pageerror', error => issues.push(error.message))
+  await page.getByRole('button', { name: '＋ 新的对话' }).waitFor()
+  await expect(page.locator('.mode')).toBeVisible()
+  return page
+}
+async function send(page, text) { await page.getByRole('textbox', { name: '消息', exact: true }).fill(text); await page.getByRole('button', { name: '发送 ↑' }).click() }
+async function api(page, method, value) { return page.evaluate(({ method, value }) => window.changli[method](value), { method, value }) }
+try {
+  let page = await launch()
+  await expect(page.locator('.mode')).toContainText('模拟模式')
+  await send(page, '第一段会话')
+  await expect(page.locator('.bubble').last()).toContainText('模拟回复')
+  await page.getByRole('button', { name: '停止生成', exact: true }).click()
+  await expect(page.locator('.status').last()).toContainText('已停止')
+  const stopped = await page.locator('.bubble').last().textContent()
+  await expect.poll(() => page.locator('.bubble').last().textContent()).toBe(stopped)
+  await page.getByRole('button', { name: '＋ 新的对话' }).click()
+  await send(page, '第二段会话')
+  await expect(page.locator('.status').last()).toContainText('已完成', { timeout: 15000 })
+  mkdirSync('test-results', { recursive: true })
+  await page.screenshot({ path: 'test-results/chat.png' })
+  const selected = (await api(page, 'snapshot')).selectedId
+  await app.close()
+  page = await launch()
+  expect((await api(page, 'snapshot')).selectedId).toBe(selected)
+  await expect(page.locator('nav button')).toHaveCount(2)
+  await expect(page.locator('.bubble').first()).toHaveText('第二段会话')
+  await send(page, '生成中关闭')
+  await expect(page.getByRole('button', { name: '停止生成', exact: true })).toBeVisible()
+  await app.close()
+  page = await launch()
+  await expect(page.locator('.status').last()).toContainText('已中断')
+  await expect(page.getByRole('button', { name: '发送 ↑' })).toBeVisible()
+  await page.getByRole('button', { name: '连接设置' }).click()
+  await expect(page.getByRole('combobox', { name: '运行模式', exact: true })).toHaveValue('demo')
+  await expect(page.getByLabel('完整接口地址', { exact: true })).toHaveValue('')
+  await expect(page.getByLabel('模型名称', { exact: true })).toHaveValue('')
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('连接设置已保存。')
+  await page.screenshot({ path: 'test-results/settings.png' })
+
+  // 预设只填表单，保存时用假 key；此阶段绝不点击连接检查或发送聊天。
+  await page.getByRole('button', { name: '使用 DeepSeek 预设', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: '运行模式', exact: true })).toHaveValue('chat-completions')
+  await expect(page.getByLabel('完整接口地址', { exact: true })).toHaveValue('https://api.deepseek.com/chat/completions')
+  await expect(page.getByLabel('模型名称', { exact: true })).toHaveValue('deepseek-flash')
+  expect((await api(page, 'snapshot')).settings.mode).toBe('demo')
+  await page.getByLabel('API Key', { exact: true }).fill('TEST_KEY_ONLY_NOT_REAL')
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'snapshot')).settings).toEqual({
+    mode: 'chat-completions', endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-flash', hasKey: true
+  })
+  await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+  await page.screenshot({ path: 'test-results/settings-deepseek.png' })
+
+  // 手动配置仍可用；更换地址而未重填密钥时清除旧密钥。
+  await page.getByLabel('完整接口地址', { exact: true }).fill(endpoint + '/ok')
+  await page.getByLabel('模型名称', { exact: true }).fill('fixture')
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'snapshot')).settings).toEqual({
+    mode: 'chat-completions', endpoint: endpoint + '/ok', model: 'fixture', hasKey: false
+  })
+  await page.getByLabel('API Key', { exact: true }).fill('TEST_KEY_ONLY_NOT_REAL')
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'snapshot')).settings.hasKey).toBe(true)
+  await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+
+  await page.getByRole('button', { name: '返回对话', exact: true }).click()
+  await page.getByRole('button', { name: '连接设置' }).click()
+  await expect(page.getByRole('combobox', { name: '运行模式', exact: true })).toHaveValue('chat-completions')
+  await expect(page.getByLabel('完整接口地址', { exact: true })).toHaveValue(endpoint + '/ok')
+  await expect(page.getByLabel('模型名称', { exact: true })).toHaveValue('fixture')
+  const snapshot = await api(page, 'snapshot')
+  expect(JSON.stringify(snapshot)).not.toContain('TEST_KEY_ONLY_NOT_REAL')
+  expect(snapshot.settings.hasKey).toBe(true)
+  for (const name of readdirSync(dir).filter(name => name.startsWith('chat.sqlite'))) expect(readFileSync(join(dir, name)).includes(Buffer.from('TEST_KEY_ONLY_NOT_REAL'))).toBe(false)
+  await expect.poll(() => api(page, 'testConnection')).toContain('收到模型文字流')
+  await page.getByRole('button', { name: '返回对话' }).click()
+  await send(page, '测试协议')
+  await expect(page.locator('.bubble').last()).toHaveText('协议测试回复（本机夹具）')
+  await expect(page.locator('.status').last()).toContainText('已完成')
+  await api(page, 'saveSettings', { mode: 'chat-completions', endpoint: endpoint + '/unauthorized', model: 'fixture' })
+  expect((await api(page, 'snapshot')).settings.hasKey).toBe(false)
+  await send(page, '失败后重试')
+  await expect(page.locator('.status').last()).toContainText('HTTP 401')
+  await expect(page.locator('body')).not.toContainText('PRIVATE_SERVICE_RESPONSE')
+  await api(page, 'saveSettings', { mode: 'chat-completions', endpoint: endpoint + '/ok', model: 'fixture' })
+  await page.getByRole('button', { name: '重试此回复' }).click()
+  await expect(page.locator('.status').last()).toContainText('已完成')
+  expect((await api(page, 'snapshot')).messages.filter(x => x.content === '失败后重试')).toHaveLength(1)
+  expect(await page.evaluate(() => typeof window.require)).toBe('undefined')
+  expect(await page.evaluate(() => Object.keys(window.changli).sort())).toEqual(['create','onChange','retry','saveSettings','select','send','snapshot','stop','testConnection','workspace','saveMemory','deleteMemory','configureApp','renameApp','grantApp','runTool'].sort())
+  await page.getByRole('button', { name: '明确记忆', exact: false }).click()
+  await page.getByRole('textbox', { name: '记忆内容', exact: true }).fill('测试偏好：先给结论')
+  await page.getByRole('button', { name: '保存新记忆', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('记忆已保存到本机。')
+  await page.screenshot({ path: 'test-results/memory.png' })
+  await app.close(); page = await launch()
+  await page.getByRole('button', { name: '明确记忆', exact: false }).click()
+  await expect(page.locator('.record-content')).toHaveText('测试偏好：先给结论')
+  await page.getByRole('button', { name: '编辑', exact: true }).click()
+  await page.getByRole('textbox', { name: '记忆内容', exact: true }).fill('测试偏好：更新后详细说明')
+  await page.getByRole('button', { name: '保存修改', exact: true }).click()
+  await expect(page.locator('.record-content')).toHaveText('测试偏好：更新后详细说明')
+  await page.getByRole('button', { name: '删除', exact: true }).click()
+  await page.getByRole('button', { name: '确认删除这条记忆', exact: true }).click()
+  await expect(page.locator('.record-content')).toHaveCount(0)
+  await page.getByRole('button', { name: '电脑工具', exact: false }).click()
+  await page.getByRole('button', { name: '查询电脑状态', exact: true }).click()
+  await expect(page.locator('.tool-status').first()).toHaveText('成功')
+  await expect(page.locator('pre').first()).toContainText('采样时间')
+  await expect(page.locator('pre').first()).toContainText('不支持')
+  await page.screenshot({ path: 'test-results/tools.png' })
+
+  // 只替换原生选择器结果；临时 .exe 是普通测试文件，不会点击启动按钮。
+  const fixturePath = join(dir, 'fixture.exe')
+  writeFileSync(fixturePath, 'application-selection-fixture-not-an-executable')
+  const toolsBeforeApps = (await api(page, 'workspace')).tools.length
+  await expect(page.getByLabel('应用 ID', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('显示名称', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: '应用名称', exact: true })).toHaveCount(0)
+  await app.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }) })
+  await page.getByRole('button', { name: '添加应用', exact: true }).click()
+  await expect(page.getByRole('button', { name: '添加应用', exact: true })).toBeEnabled()
+  expect((await api(page, 'workspace')).apps).toHaveLength(0)
+
+  await app.evaluate(({ dialog }, selected) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] })
+  }, fixturePath)
+  await page.getByRole('button', { name: '添加应用', exact: true }).click()
+  await expect(page.getByRole('button', { name: '添加应用', exact: true })).toBeEnabled()
+  await expect.poll(async () => (await api(page, 'workspace')).apps.length).toBe(1)
+  const configuredApp = (await api(page, 'workspace')).apps[0]
+  expect(configuredApp.id).toMatch(/^[a-z0-9_-]{1,40}$/)
+  expect(configuredApp.name).toBe('fixture')
+  expect(configuredApp.target).toBe(fixturePath)
+  expect(configuredApp.approved).toBe(false)
+  await expect(page.locator('.settings-panel')).not.toContainText(configuredApp.id)
+  await page.getByRole('button', { name: '允许启动此应用', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'workspace')).apps[0].approved).toBe(true)
+
+  // 再选同一程序不会新建条目，也不会清掉已有有效授权。
+  await page.getByRole('button', { name: '添加应用', exact: true }).click()
+  await expect(page.getByRole('button', { name: '添加应用', exact: true })).toBeEnabled()
+  const repeatedApps = (await api(page, 'workspace')).apps
+  expect(repeatedApps).toHaveLength(1)
+  expect(repeatedApps[0]).toEqual({ ...configuredApp, approved: true })
+  await page.getByRole('button', { name: '修改名称', exact: true }).click()
+  await page.getByRole('textbox', { name: '应用名称', exact: true }).fill('回归测试程序')
+  await page.getByRole('button', { name: '保存名称', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'workspace')).apps[0].name).toBe('回归测试程序')
+  expect((await api(page, 'workspace')).apps[0]).toEqual({ ...configuredApp, approved: true, name: '回归测试程序' })
+  await page.getByRole('button', { name: '撤销授权', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'workspace')).apps[0].approved).toBe(false)
+  await page.getByRole('button', { name: '允许启动此应用', exact: true }).click()
+  await expect.poll(async () => (await api(page, 'workspace')).apps[0].approved).toBe(true)
+  expect((await api(page, 'workspace')).tools).toHaveLength(toolsBeforeApps)
+  await page.screenshot({ path: 'test-results/apps.png' })
+
+  await app.close(); page = await launch()
+  expect((await api(page, 'workspace')).memories).toHaveLength(0)
+  expect((await api(page, 'workspace')).tools[0].status).toBe('success')
+  expect((await api(page, 'workspace')).apps).toEqual([{ ...configuredApp, approved: true, name: '回归测试程序' }])
+  await send(page, '记住，我喜欢短答')
+  await expect(page.getByRole('button', { name: '确认记忆内容', exact: true })).toBeVisible()
+  expect((await api(page, 'workspace')).memories).toHaveLength(0)
+  await page.getByRole('button', { name: '确认记忆内容', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: '记忆内容', exact: true })).toHaveValue('我喜欢短答')
+  await page.getByRole('button', { name: '保存新记忆', exact: true }).click()
+  await expect(page.locator('.record-content')).toHaveText('我喜欢短答')
+  expect(issues).toEqual([])
+  console.log('Electron 实机检查通过：双会话、流式/停止、正常重启、生成中退出、DeepSeek 预设填写与自定义设置保留（未调用真实服务）、凭据不回传且落盘无明文、SSE 夹具、401/重试、受限桥、记忆增改删/重启、真实硬件采样/记录恢复、应用选择取消/自动名称与 ID/去重/授权撤销/改名/重启持久化（未启动应用）。')
+} finally {
+  await app?.close().catch(() => {})
+  await new Promise(resolve => server.close(resolve))
+  expect(resolve(dir).startsWith(join(resolve(tmpdir()), 'changli-electron-'))).toBe(true)
+  rmSync(dir, { recursive: true, force: true })
+}

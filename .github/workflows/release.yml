@@ -1,0 +1,123 @@
+name: Windows Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已推送的版本标签，如 v0.1.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - name: 核对标签、版本与提交
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release.mjs validate
+      - name: 安装锁定依赖
+        run: npm ci
+      - name: 检查公开文件范围
+        run: npm run check:public
+      - name: 核心行为测试
+        run: npm test
+      - name: 构建与 Electron 桌面回归
+        run: npm run test:e2e
+      - name: 构建 Windows 发布文件
+        run: npm run dist:win
+      - name: 检查实际打包应用
+        run: npm run test:packaged
+      - name: 生成 SHA-256 校验清单
+        run: node scripts/release.mjs manifest
+      - name: 保存已验证的发布文件
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release-assets
+          path: |
+            release/*.exe
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: 保存失败时的测试截图
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-test-screenshots
+          path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-release-assets
+          path: release
+      - name: 验证下载文件
+        working-directory: release
+        run: sha256sum --check SHA256SUMS.txt
+      - name: 创建并发布 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if draft_state="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [[ "$draft_state" != "true" ]]; then
+              echo "该版本已经公开发布，拒绝覆盖附件。请发布新版本。" >&2
+              exit 1
+            fi
+            echo "复用已有草稿，恢复本次发布。"
+          else
+            options=("$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "长离桌面助手 $RELEASE_TAG" --generate-notes --draft)
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              options+=(--prerelease --latest=false)
+            fi
+            gh release create "${options[@]}"
+          fi
+          require_draft() {
+            if [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')" != "true" ]]; then
+              echo "发布状态已变化，拒绝修改公开版本。" >&2
+              exit 1
+            fi
+          }
+          require_draft
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber release/*.exe release/*.zip release/SHA256SUMS.txt
+          require_draft
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$IS_PRERELEASE"

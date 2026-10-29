@@ -1,0 +1,45 @@
+{
+  "name": "changli-desktop-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "check": "vue-tsc --noEmit",
+    "build": "npm run check && electron-vite build",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "npm run build && node tests/electron.mjs",
+    "check:public": "node scripts/check-public.mjs",
+    "pack:win": "npm run build && electron-builder --win --x64 --dir --publish never",
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never",
+    "test:packaged": "node tests/packaged.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.6",
+    "@vitejs/plugin-vue": "6.0.10",
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vue-tsc": "3.3.13"
+  },
+  "dependencies": {
+    "vue": "3.5.44"
+  },
+  "description": "非官方长离角色 Windows 桌面助手：文字聊天、本地记忆与获准应用工具",
+  "author": "lchangli",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lchangli/changli-desktop-agent.git"
+  },
+  "homepage": "https://github.com/lchangli/changli-desktop-agent#readme",
+  "bugs": {
+    "url": "https://github.com/lchangli/changli-desktop-agent/issues"
+  }
+}
