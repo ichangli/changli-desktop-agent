@@ -24,6 +24,8 @@ v0.1.0 首次预览版提供 Windows x64 ZIP 与单文件便携版，通过 GitH
 
 默认启动为明确标识的本地模拟模式，用于体验界面与存储；保存云端模型配置后才使用对应服务。模拟模式不会自行发起模型请求，面板中的电脑工具仍执行真实操作。
 
+![Windows 便携版实机截图，内容为本地模拟测试夹具](docs/images/preview.png)
+
 ## 模型与数据
 
 DeepSeek 预设的完整地址为 `https://api.deepseek.com/chat/completions`，模型为 `deepseek-flash`。当前适配器对官方域名显式使用非思考模式，未实现思考内容的工具轮回传。地址或模型也可以手填；接入范围为 Chat Completions / SSE 文本流与 `tools/tool_calls`，不承诺各家扩展协议完全兼容。

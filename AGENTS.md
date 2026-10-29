@@ -47,4 +47,4 @@
 
 ## 当前工程状态
 
-已建立 M1～M3 本地开发版并进行 Windows 核心/桌面测试，运行与验证命令见 README。用户已反馈真实 API 与此前建议检查通过；应用添加已改为选择程序后自动生成内部标识和名称，并通过回归。保留用户现有记录和授权，不要求重新配置。不得把模拟流、SSE 夹具或启动桩当成真实供应商/应用实测证据。状态以 PLAN 与 VERIFICATION 的实际记录为准。
+v0.1.0 预览版已在 lchangli/changli-desktop-agent 开源并通过 GitHub Release 发布 Windows ZIP/便携 EXE；核心、桌面、独立程序、便携包装及云端发布流程均通过。命令与后续发版方式见 README、docs/RELEASING.md。保留现有数据和授权；开发/正式目录独立，不自动迁移用户数据。用户已反馈真实 API 与此前建议检查通过，但不得把模拟流、SSE 夹具或启动桩当成真实供应商/应用实测证据。具体记录见 PLAN 与 VERIFICATION。

@@ -1,6 +1,6 @@
 # v0.1 开发版验证记录
 
-日期：2026-10-29。环境：Windows 11 家庭版中文版 x64，10.0.26300；Node 24.15.0 / npm 11.12.1 / Electron 45.1.0。**本记录不表示首版全部验收完成。**
+日期：2026-10-29。环境：Windows 11 家庭版中文版 x64，10.0.26300；Node 24.15.0 / npm 11.12.1 / Electron 45.1.0。v0.1.0 已作为预览版交付，本记录区分自动化检查、用户自测反馈与尚未覆盖的能力。
 
 核心检查为 `npm test` 的 14 项测试（含 DeepSeek 非思考请求格式及 4 项应用配置回归）；桌面检查为 `npm run test:e2e`，使用 Playwright 操作实际 Electron 窗口，SQLite 位于独立临时目录。本机 HTTP/SSE 服务是明确的测试夹具，不是实际 AI 模型；应用启动使用注入桩，没有选择或启动用户的真实应用。DeepSeek 格式补丁后核心测试、类型检查与构建通过。
 
@@ -28,7 +28,7 @@
 | AC-18 | 部分验证 | 假密钥不回传 renderer，SQLite/WAL 无假密钥明文，前端不含测试密钥；设置页解释云端数据范围。无真实密钥用于测试；未审计外部供应商存储行为。 |
 | AC-19 | 部分验证，另有用户反馈 | 夹具聊天 → 记忆 → 重启 → 真实硬件查询/记录恢复已在桌面验证；用户反馈此前建议检查通过，但未记录包含全部环节的单次真实链路结果。 |
 | AC-20 | 开发及独立发行包本机通过 | check/build/dev/桌面启停已运行；独立目录、实际 ZIP 解压程序与单文件便携 EXE 均经启动检查，版本资源与本地页面正常，默认无自启。尚未验证其他 Windows 版本，发行文件未签名。 |
-| AC-21 | 公开仓库已上传，远端发布待验证 | 公开仓库 lchangli/changli-desktop-agent 已创建并上传源码，MIT 许可证与版本工作流可见。首次 Windows CI 正在执行；标签发布与附件尚待远端完成。 |
+| AC-21 | 通过 | 公开仓库 lchangli/changli-desktop-agent 已上传源码及 MIT 许可证。两次 Windows CI 通过；v0.1.0 标签触发的 Windows Release 构建及发布任务通过，ZIP/便携 EXE/SHA256SUMS 已公开，附件 digest 与下载的校验清单一致。 |
 
 可复查截图在忽略目录 `test-results/chat.png`、`settings.png`、`memory.png`、`tools.png`；仅包含测试夹具内容与本机采样，非真实用户对话。
 
@@ -40,4 +40,6 @@
 
 连接设置新增 DeepSeek 地址与 `deepseek-flash` 的下拉建议（datalist，仍可手填），以及“使用 DeepSeek 预设”按钮；按钮仅填入模式、地址和模型，用户填写密钥后显式保存。类型检查、构建与 Electron 桌面回归通过：保存前不改实际配置、预设填写后仅输入假密钥即可保存、切换自定义接口清旧密钥、手填自定义模型并重新打开设置仍保留。使用临时数据及本机 SSE，未调用真实 DeepSeek。截图 test-results/settings-deepseek.png。首次回归的精确 label 选择器无法匹配包含选项文字的模式控件，改按可访问 combobox 名称定位后通过；未因此改变产品表单行为。
 
-2026-10-29 本机发行验证通过：`npm test` 14 项、类型检查/构建、Electron 桌面回归、`npm run test:packaged`、实际 ZIP 解压程序检查和单文件便携 EXE 检查。ASAR 不含 src/tests/runtime/数据库等，程序在设置恶意开发服务器环境变量时仍只加载内置页面；人设独立资源存在。两会话、记忆、假密钥重启恢复与真实硬件采样通过；便携包装正常解压、完成模拟回复、落盘并退出。公开文件扫描通过，运行数据及下载工具不在 Git 清单内；生产依赖审计报告 0 个已知漏洞。正式版数据目录与开发版分开，不自动读取或迁移私人运行数据。公开仓库已上传，远端 CI 与首次 Release 的最终状态另行记录。构建资源曾遇到网络重置，改为从官方 URL 下载并核对包内 SHA-256 后缓存再构建，没有关闭校验。
+2026-10-29 本机发行验证通过：`npm test` 14 项、类型检查/构建、Electron 桌面回归、`npm run test:packaged`、实际 ZIP 解压程序检查和单文件便携 EXE 检查。ASAR 不含 src/tests/runtime/数据库等，程序在设置恶意开发服务器环境变量时仍只加载内置页面；人设独立资源存在。两会话、记忆、假密钥重启恢复与真实硬件采样通过；便携包装正常解压、完成模拟回复、落盘并退出。公开文件扫描通过，运行数据及下载工具不在 Git 清单内；生产依赖审计报告 0 个已知漏洞。正式版数据目录与开发版分开，不自动读取或迁移私人运行数据。构建资源曾遇到网络重置，改为从官方 URL 下载并核对包内 SHA-256 后缓存再构建，没有关闭校验。
+
+远端验证：[Windows CI](https://github.com/lchangli/changli-desktop-agent/actions/runs/40833361515) 通过；[v0.1.0 发布流程](https://github.com/lchangli/changli-desktop-agent/actions/runs/40833370858) 构建与发布全部通过（包含实际独立 EXE 和便携包装启动测试）。[预览版 Release](https://github.com/lchangli/changli-desktop-agent/releases/tag/v0.1.0) 已公开三份附件：便携 EXE 111599644 字节、ZIP 156421695 字节和 SHA256SUMS.txt。通过 API 确认 isDraft=false、isPrerelease=true、附件均 uploaded，并将两份发行文件的 GitHub SHA-256 digest 与下载的清单逐项核对通过。Release 附件由标签对应的云端构建生成，不用本机产物替代远端验证。
