@@ -26,7 +26,7 @@ git push origin v0.1.1
 
 `npm version` 会同步更新 package.json 与 package-lock.json。标签必须与 package.json 的版本完全一致，并指向实际构建提交。首次 `v0.1.0` 不需要再次运行 `npm version`，在已提交的初始版本上创建相应标签即可。
 
-Windows Release 会依次执行版本核对、锁定依赖安装、核心测试、Electron 桌面回归、独立 Windows 打包和打包应用检查，然后生成 SHA256SUMS.txt。只有这些步骤成功，独立的发布任务才获得写权限，用 GitHub 内置 `GITHUB_TOKEN` 创建 Release 草稿、上传 `.exe` / `.zip` 与校验清单，再公开该 Release。无需配置个人 GitHub Token，也无需给 CI 提供模型密钥。
+Windows Release 会依次执行版本核对、锁定依赖安装、核心测试、Electron 桌面回归、独立 Windows 打包、打包应用检查和单文件便携版启动检查，然后生成 SHA256SUMS.txt。只有这些步骤成功，独立的发布任务才获得写权限，用 GitHub 内置 `GITHUB_TOKEN` 创建 Release 草稿、上传 `.exe` / `.zip` 与校验清单，再公开该 Release。无需配置个人 GitHub Token，也无需给 CI 提供模型密钥。
 
 已存在的标签也可在 Actions → Windows Release → Run workflow 中手动填入执行。它会构建该标签指向的代码，而不是自动采用最新 main。首次创建草稿或附件上传失败后，可以修复问题并重跑：只有仍为草稿的版本才会被复用，同名附件通过 `gh release upload --clobber` 重新上传，全部成功后再公开。上传前和公开前都会再次核对草稿状态；上传再次失败会保留草稿，供后续恢复。已有公开 Release 会直接拒绝覆盖，需发布新版本，工作流也不会强行移动标签。维护者应让同一标签的发布交给工作流完成，避免在附件上传期间手动公开草稿。
 

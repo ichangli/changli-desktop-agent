@@ -74,12 +74,14 @@ npm start
 
 `test:e2e` 用临时目录与本机模型夹具操作真实 Electron 窗口，不使用个人模型凭据；截图写入忽略的 `test-results/`。首次安装可能需要下载 Electron 运行文件。开发时也可双击“启动长离.cmd”，它会构建后运行开发版。
 
-独立发行构建命令本轮接入中，首次通过结果见 [验证记录](docs/VERIFICATION.md)：
+独立发行构建与验证：
 
 ```powershell
 npm run pack:win
 npm run test:packaged
 npm run dist:win
+npm run test:portable
+node scripts/release.mjs manifest
 ```
 
 `pack:win` 构建 Windows 目录版供本机检查；`dist:win` 生成发行文件。普通 `build` 的 `out/` 仍依赖项目资源和依赖目录，不能作为独立发行包。

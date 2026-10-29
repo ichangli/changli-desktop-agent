@@ -14,7 +14,8 @@
     "check:public": "node scripts/check-public.mjs",
     "pack:win": "npm run build && electron-builder --win --x64 --dir --publish never",
     "dist:win": "npm run build && electron-builder --win --x64 --publish never",
-    "test:packaged": "node tests/packaged.mjs"
+    "test:packaged": "node tests/packaged.mjs",
+    "test:portable": "node tests/portable.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

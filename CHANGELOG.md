@@ -1,6 +1,6 @@
 # 变更记录
 
-## 未发布：0.1.0 首次预览版
+## 0.1.0 首次预览版 — 2026-10-29
 
 - Electron + Vue 文字聊天界面，支持流式回复、停止、手动重试和会话切换。
 - SQLite 保存会话及生成状态，重启后保留记录，未完成回复标为中断。
@@ -10,4 +10,8 @@
 - Chat Completions / SSE 文本与工具调用适配，DeepSeek 官方非思考模式预设。
 - 本地模拟模式、Windows 凭据加密与受限 preload 接口。
 
-本轮正在准备 Windows 独立发行包、公开仓库与标签发布流程。发行包与远端流程的通过状态以 [验证记录](docs/VERIFICATION.md) 和 GitHub Releases 为准。
+- Windows x64 ZIP 与单文件便携版，资源白名单打包与 SHA-256 校验清单。
+- MIT 代码许可、非官方角色说明与 GitHub 版本标签发布流程。
+- 正式包仅载入本地页面，启动目标读取失败时不向模型暴露本机路径。
+
+发行文件及远端流程状态见 [验证记录](docs/VERIFICATION.md) 和 GitHub Releases。

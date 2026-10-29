@@ -54,6 +54,8 @@ jobs:
         run: npm run dist:win
       - name: 检查实际打包应用
         run: npm run test:packaged
+      - name: 检查单文件便携版
+        run: npm run test:portable
       - name: 生成 SHA-256 校验清单
         run: node scripts/release.mjs manifest
       - name: 保存已验证的发布文件
