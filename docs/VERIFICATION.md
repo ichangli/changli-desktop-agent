@@ -88,3 +88,10 @@
 - `npm test` 24 项、`npm run test:e2e`（含类型检查、构建及四组 Electron 回归）通过。已有测试全部从新入口操作；额外验证三个侧栏入口、四个页签、选中状态/键盘焦点、方向键/Home 切换、未保存模型名称跨页签保留、本地保存说明位置。
 - `npm run pack:win` / `npm run test:packaged` 通过，实际 v0.2.0-beta.2 独立 EXE 完成新入口工具查询、托盘与数据恢复等回归。测试只用独立临时数据、模型/选择器桩与假密钥。
 - 查看 `test-results/desktop-settings.png`，导航和设置页布局正常。公开文件检查与差异检查通过。尚未将准备上传记作远端成功；以本次 Release/CI 实际结果为准。
+
+### v0.2.0-beta.2 远端交付
+
+- 源码/标签提交 `86f9146bb84236413c25007840e9bf17c5f713aa` 已上传，旧标签与旧发行附件未覆盖。
+- [Windows CI](https://github.com/ichangli/changli-desktop-agent/actions/runs/40985450863) 与 [Windows Release](https://github.com/ichangli/changli-desktop-agent/actions/runs/40985458487) 构建/发布均通过，含 24 项核心、四组 Electron 回归、实际独立 EXE 与便携版检查。
+- [v0.2.0-beta.2](https://github.com/ichangli/changli-desktop-agent/releases/tag/v0.2.0-beta.2) 已公开（draft=false、prerelease=true），中文变更说明与下载附件齐全。便携 EXE 111604597 字节，digest `92a7ca703913937c2f2cb441869508789b6ea70630135f4cf88ec4c0240d803e`；ZIP 156431602 字节，digest `0211a86114a908812a82f96ea2224755d6bd0a98365a916b57c1be322f5cef36`。
+- 已下载校验清单，将其自身 SHA-256 及两项发行哈希与 GitHub 附件 digest 逐项核对通过。最小窗口 850×600 的导航布局截图已查看，四页签和三个主入口完整显示；长内容在页内滚动。
