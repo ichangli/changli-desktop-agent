@@ -59,7 +59,7 @@ try {
   expect(page.url()).toMatch(/^file:\/\//)
   expect(await page.evaluate(() => typeof window.require)).toBe('undefined')
   const apiMethods = await page.evaluate(() => Object.keys(window.changli).sort())
-  expect(apiMethods).toEqual(['configureApp', 'create', 'deleteMemory', 'grantApp', 'onChange', 'renameApp', 'retry', 'runTool', 'saveMemory', 'saveSettings', 'select', 'send', 'snapshot', 'stop', 'testConnection', 'workspace'].sort())
+  expect(apiMethods).toEqual(['updateInfo','checkUpdates','openReleases','desktopPreferences','saveDesktopPreferences','hideWindow','quitApp','backupData', 'cancelRestore', 'deleteConversation', 'exportConversation', 'prepareRestore', 'renameConversation', 'restoreData', 'searchConversations', 'configureApp', 'create', 'deleteMemory', 'grantApp', 'onChange', 'renameApp', 'retry', 'runTool', 'saveMemory', 'saveSettings', 'select', 'send', 'snapshot', 'stop', 'testConnection', 'workspace'].sort())
   await expect(page.locator('.mode')).toContainText('模拟模式')
   const message = '单文件便携包装启动回归（测试夹具）'
   await page.getByRole('textbox', { name: '消息', exact: true }).fill(message)

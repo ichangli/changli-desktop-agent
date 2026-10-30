@@ -31,8 +31,33 @@ export class Store {
     const m: Message = { id: randomUUID(), sessionId, role, content, status, createdAt: new Date().toISOString(), error: '' }
     this.db.prepare('INSERT INTO messages(id,sessionId,role,content,status,createdAt,error) VALUES (?,?,?,?,?,?,?)').run(m.id, sessionId, role, content, status, m.createdAt, '')
     if (role === 'user' && this.messages(sessionId).filter(x => x.role === 'user').length === 1)
-      this.db.prepare('UPDATE conversations SET title=? WHERE id=?').run(content.slice(0, 24), sessionId)
+      this.db.prepare("UPDATE conversations SET title=? WHERE id=? AND title='新的对话'").run(content.slice(0, 24), sessionId)
     return m
+  }
+  renameConversation(id: string, title: string) {
+    if (typeof id !== 'string' || typeof title !== 'string' || !title.trim() || title.length > 80) throw new Error('会话名称须为 1～80 字符。')
+    if (!this.db.prepare('UPDATE conversations SET title=? WHERE id=?').run(title.trim(), id).changes) throw new Error('会话不存在。')
+  }
+  deleteConversation(id: string) {
+    if (typeof id !== 'string' || !this.conversations().some(c => c.id === id)) throw new Error('会话不存在。')
+    this.db.exec('BEGIN')
+    try {
+      this.db.prepare('DELETE FROM tools WHERE sessionId=?').run(id)
+      this.db.prepare('DELETE FROM messages WHERE sessionId=?').run(id)
+      this.db.prepare('DELETE FROM conversations WHERE id=?').run(id)
+      if (this.get('selected') === id) this.set('selected', this.conversations()[0]?.id ?? this.create())
+      this.db.exec('COMMIT')
+    } catch (error) { this.db.exec('ROLLBACK'); throw error }
+  }
+  search(query: string) {
+    if (typeof query !== 'string' || query.length > 200) throw new Error('搜索词最多 200 字符。')
+    const term = query.trim()
+    if (!term) return []
+    return this.db.prepare(`SELECT c.id AS sessionId,c.title,
+      (SELECT id FROM messages WHERE sessionId=c.id AND instr(lower(content),lower(?))>0 ORDER BY seq LIMIT 1) AS messageId,
+      (SELECT substr(content,max(1,instr(lower(content),lower(?))-30),160) FROM messages WHERE sessionId=c.id AND instr(lower(content),lower(?))>0 ORDER BY seq LIMIT 1) AS excerpt
+      FROM conversations c WHERE instr(lower(c.title),lower(?))>0 OR EXISTS(SELECT 1 FROM messages WHERE sessionId=c.id AND instr(lower(content),lower(?))>0)
+      ORDER BY c.rowid DESC LIMIT 100`).all(term, term, term, term, term) as unknown as import('../shared/types').SearchHit[]
   }
   update(m: Message) { this.db.prepare('UPDATE messages SET content=?,status=?,error=? WHERE id=?').run(m.content, m.status, m.error, m.id) }
   get(key: string) { return (this.db.prepare('SELECT value FROM settings WHERE key=?').get(key)?.value as string | undefined) ?? '' }

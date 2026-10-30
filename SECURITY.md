@@ -2,7 +2,7 @@
 
 ## 报告问题
 
-涉及密钥泄漏、权限绕过或任意命令执行的问题，请优先通过仓库的 [私人漏洞报告入口](https://github.com/lchangli/changli-desktop-agent/security/advisories/new) 联系维护者。若入口尚未启用，可以创建仅说明希望私下联系的 Issue，不公开漏洞细节、凭据或私人数据。维护者没有承诺固定响应时限。
+涉及密钥泄漏、权限绕过或任意命令执行的问题，请优先通过仓库的 [私人漏洞报告入口](https://github.com/ichangli/changli-desktop-agent/security/advisories/new) 联系维护者。若入口尚未启用，可以创建仅说明希望私下联系的 Issue，不公开漏洞细节、凭据或私人数据。维护者没有承诺固定响应时限。
 
 一般功能错误可在 Issues 中提供版本、Windows 环境、复现步骤与脱敏错误信息。不要上传真实 API Key、完整聊天数据库或访问凭据。
 

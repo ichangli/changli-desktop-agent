@@ -110,7 +110,7 @@ try {
   await expect(page.locator('.status').last()).toContainText('已完成')
   expect((await api(page, 'snapshot')).messages.filter(x => x.content === '失败后重试')).toHaveLength(1)
   expect(await page.evaluate(() => typeof window.require)).toBe('undefined')
-  expect(await page.evaluate(() => Object.keys(window.changli).sort())).toEqual(['create','onChange','retry','saveSettings','select','send','snapshot','stop','testConnection','workspace','saveMemory','deleteMemory','configureApp','renameApp','grantApp','runTool'].sort())
+  expect(await page.evaluate(() => Object.keys(window.changli).sort())).toEqual(['updateInfo','checkUpdates','openReleases','desktopPreferences','saveDesktopPreferences','hideWindow','quitApp','backupData','cancelRestore','deleteConversation','exportConversation','prepareRestore','renameConversation','restoreData','searchConversations','create','onChange','retry','saveSettings','select','send','snapshot','stop','testConnection','workspace','saveMemory','deleteMemory','configureApp','renameApp','grantApp','runTool'].sort())
   await page.getByRole('button', { name: '明确记忆', exact: false }).click()
   await page.getByRole('textbox', { name: '记忆内容', exact: true }).fill('测试偏好：先给结论')
   await page.getByRole('button', { name: '保存新记忆', exact: true }).click()

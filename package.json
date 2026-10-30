@@ -1,6 +1,6 @@
 {
   "name": "changli-desktop-agent",
-  "version": "0.1.0",
+  "version": "0.2.0-beta.1",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
@@ -10,7 +10,7 @@
     "check": "vue-tsc --noEmit",
     "build": "npm run check && electron-vite build",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:e2e": "npm run build && node tests/electron.mjs",
+    "test:e2e": "npm run build && node tests/electron.mjs && node tests/data-electron.mjs && node tests/desktop-electron.mjs && node tests/updates-electron.mjs",
     "check:public": "node scripts/check-public.mjs",
     "pack:win": "npm run build && electron-builder --win --x64 --dir --publish never",
     "dist:win": "npm run build && electron-builder --win --x64 --publish never",
@@ -33,14 +33,14 @@
     "vue": "3.5.44"
   },
   "description": "非官方长离角色 Windows 桌面助手：文字聊天、本地记忆与获准应用工具",
-  "author": "lchangli",
+  "author": "ichangli",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lchangli/changli-desktop-agent.git"
+    "url": "https://github.com/ichangli/changli-desktop-agent.git"
   },
-  "homepage": "https://github.com/lchangli/changli-desktop-agent#readme",
+  "homepage": "https://github.com/ichangli/changli-desktop-agent#readme",
   "bugs": {
-    "url": "https://github.com/lchangli/changli-desktop-agent/issues"
+    "url": "https://github.com/ichangli/changli-desktop-agent/issues"
   }
 }

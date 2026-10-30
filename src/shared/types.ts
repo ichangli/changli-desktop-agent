@@ -10,7 +10,27 @@ export interface AllowedApp { id: string; name: string; target: string; approved
 export type ToolStatus = 'waiting' | 'running' | 'success' | 'failed' | 'cancelled' | 'timeout' | 'uncertain'
 export interface ToolRecord { id: string; sessionId: string; name: string; target: string; status: ToolStatus; result: string; createdAt: string }
 export interface Workspace { memories: Memory[]; apps: AllowedApp[]; tools: ToolRecord[] }
+export interface SearchHit { sessionId: string; title: string; messageId: string | null; excerpt: string }
+export interface RestorePreview { token: string; conversations: number; messages: number; memories: number }
+export interface DesktopPreferences { closeAction: 'quit' | 'tray'; trayAvailable: boolean }
+export interface PublishedRelease { tag: string; version: string; prerelease: boolean; publishedAt: string; notes: string }
+export interface UpdateInfo { currentVersion: string; checkedAt: string; status: 'idle' | 'checking' | 'available' | 'current' | 'empty' | 'error'; release: PublishedRelease | null }
 export interface Api {
+  updateInfo(): Promise<UpdateInfo>
+  checkUpdates(): Promise<UpdateInfo>
+  openReleases(): Promise<void>
+  desktopPreferences(): Promise<DesktopPreferences>
+  saveDesktopPreferences(value: { closeAction: DesktopPreferences['closeAction'] }): Promise<DesktopPreferences>
+  hideWindow(): Promise<void>
+  quitApp(): Promise<void>
+  renameConversation(value: { id: string; title: string }): Promise<Snapshot>
+  deleteConversation(id: string): Promise<Snapshot>
+  searchConversations(query: string): Promise<SearchHit[]>
+  exportConversation(id: string): Promise<string>
+  backupData(): Promise<string>
+  prepareRestore(): Promise<RestorePreview | null>
+  restoreData(token: string): Promise<string>
+  cancelRestore(): Promise<void>
   workspace(): Promise<Workspace>
   saveMemory(value: MemoryInput): Promise<Workspace>
   deleteMemory(id: string): Promise<Workspace>

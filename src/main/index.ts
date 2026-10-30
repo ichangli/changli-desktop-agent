@@ -1,10 +1,15 @@
-import { app, BrowserWindow, ipcMain, safeStorage, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, safeStorage, dialog, net, shell } from 'electron'
 import { join, resolve } from 'node:path'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import { open, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { makeBackup, parseBackup, restoreBackup, conversationMarkdown, maxBackupBytes, type Backup } from './data'
 import { ToolExecutor, fingerprint } from './tools'
 import { registerSelectedApp, renameApp } from './apps'
 import { Store } from './store'
+import { setupDesktop } from './desktop'
+import { createUpdateService } from './updates'
 import { Chat } from './chat'
 import { runtimePrompt, stream, validateEndpoint } from './model'
 import type { Settings, SettingsInput, MemoryInput, Workspace } from '../shared/types'
@@ -44,6 +49,11 @@ else void app.whenReady().then(() => {
       return action(...args)
     })
   }
+  const currentVersion: string = app.isPackaged ? app.getVersion() : JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+  const updates = createUpdateService(currentVersion, (input, init) => net.fetch(input instanceof URL ? input.href : input, init), url => shell.openExternal(url))
+  handle('update-info', () => updates.info())
+  handle('update-check', () => updates.check())
+  handle('update-open', () => updates.openPage())
   handle('snapshot', () => chat.snapshot())
   handle('workspace', workspace)
   handle('memory-save', (value: MemoryInput) => { store.saveMemory(value); chat.emit(); return workspace() })
@@ -67,6 +77,69 @@ else void app.whenReady().then(() => {
   })
   let panelRun: AbortController | null = null
   let panelTask: Promise<unknown> | null = null
+  let dataBusy = false
+  let restoreCandidate: { token: string; data: Backup } | null = null
+  function idle() { if (chat.active || panelRun) throw new Error('请先停止生成或等待工具结束。') }
+  async function fileAction<T>(action: () => Promise<T>) {
+    if (dataBusy) throw new Error('请先完成当前文件操作。')
+    idle(); dataBusy = true
+    try { return await action() } finally { dataBusy = false }
+  }
+  async function saveText(defaultPath: string, extension: string, text: string) {
+    const choice = await dialog.showSaveDialog(win, { defaultPath, filters: [{ name: extension === 'json' ? 'JSON 备份' : 'Markdown 聊天记录', extensions: [extension] }] })
+    if (choice.canceled || !choice.filePath) return '已取消，未写入文件。'
+    try { await writeFile(choice.filePath, text, { encoding: 'utf8', mode: 0o600 }) }
+    catch { throw new Error('文件写入失败，请检查保存位置和磁盘空间。') }
+    return '文件已保存。'
+  }
+  handle('conversation-rename', (value: { id: string; title: string }) => {
+    if (!value) throw new Error('会话参数无效。')
+    store.renameConversation(value.id, value.title); chat.emit(); return chat.snapshot()
+  })
+  handle('conversation-delete', (id: string) => {
+    idle(); store.deleteConversation(id); chat.selected = store.get('selected'); chat.emit(); return chat.snapshot()
+  })
+  handle('conversation-search', (query: string) => store.search(query))
+  handle('conversation-export', (id: string) => fileAction(async () => {
+    if (typeof id !== 'string') throw new Error('会话参数无效。')
+    const text = conversationMarkdown(store, id)
+    return saveText('长离聊天-' + new Date().toISOString().slice(0, 10) + '.md', 'md', text)
+  }))
+  handle('data-backup', () => fileAction(async () => {
+    const text = JSON.stringify(makeBackup(store), null, 2)
+    if (Buffer.byteLength(text) > maxBackupBytes) throw new Error('数据超过 50 MiB，请先分会话导出并整理记录。')
+    return saveText('长离备份-' + new Date().toISOString().slice(0, 10) + '.json', 'json', text)
+  }))
+  handle('data-prepare-restore', () => fileAction(async () => {
+    restoreCandidate = null
+    const choice = await dialog.showOpenDialog(win, { title: '选择聊天与记忆备份', properties: ['openFile'], filters: [{ name: 'JSON 备份', extensions: ['json'] }] })
+    if (choice.canceled || !choice.filePaths[0]) return null
+    let text: string
+    try {
+      const file = await open(choice.filePaths[0], 'r')
+      try {
+        const size = (await file.stat()).size
+        if (size > maxBackupBytes) throw new Error()
+        const buffer = Buffer.alloc(size + 1)
+        let count = 0, read = 0
+        do { read = (await file.read(buffer, count, buffer.length - count, null)).bytesRead; count += read } while (read && count < buffer.length)
+        if (count > size) throw new Error()
+        text = buffer.subarray(0, count).toString('utf8')
+      } finally { await file.close() }
+    } catch { throw new Error('备份读取失败或超过 50 MiB，未导入任何数据。') }
+    idle()
+    const data = parseBackup(text), token = randomUUID()
+    restoreCandidate = { token, data }
+    return { token, conversations: data.conversations.length, messages: data.messages.length, memories: data.memories.length }
+  }))
+  handle('data-cancel-restore', () => { restoreCandidate = null })
+  handle('data-restore', (token: string) => {
+    idle()
+    if (dataBusy || !restoreCandidate || restoreCandidate.token !== token) throw new Error('备份确认已失效，请重新选择文件。')
+    const result = restoreBackup(store, restoreCandidate.data)
+    restoreCandidate = null; chat.emit()
+    return `已恢复 ${result.conversations} 段会话、${result.messages} 条消息和 ${result.memories} 条新记忆。原有数据已保留。`
+  })
   handle('tool-run', async (value: { name: string; args: unknown; id: string }) => {
     if (!value || typeof value.name !== 'string' || typeof value.id !== 'string') throw new Error('工具请求无效。')
     if (chat.active || panelRun) throw new Error('请等待当前请求结束或先停止，再使用面板工具。')
@@ -108,13 +181,15 @@ else void app.whenReady().then(() => {
     } catch (error) { if (controller.signal.aborted) throw new Error('连接检查超过 15 秒。'); throw error }
     finally { clearTimeout(timer) }
   })
-  let closing = false
-  win.on('close', event => {
-    if (closing) return
-    event.preventDefault(); closing = true; panelRun?.abort()
-    void Promise.allSettled([chat.stop('interrupted'), panelTask]).then(() => { store.close(); win.destroy(); app.quit() }).catch(() => { win.destroy(); app.quit() })
+  const desktop = setupDesktop(win, store, async () => {
+    panelRun?.abort()
+    await Promise.allSettled([chat.stop('interrupted'), panelTask])
+    store.close()
   })
-  app.on('second-instance', () => { if (win.isMinimized()) win.restore(); win.focus() })
+  handle('desktop-preferences', () => desktop.preferences())
+  handle('desktop-save', (value: { closeAction: unknown }) => desktop.save(value))
+  handle('window-hide', () => desktop.hide())
+  handle('app-quit', () => { setImmediate(() => desktop.quit()) })
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void win.loadFile(join(import.meta.dirname, '../renderer/index.html'))
 }).catch(() => { dialog.showErrorBox('长离桌面助手启动失败', '无法初始化数据或应用资源，请检查数据目录权限和构建文件。'); app.quit() })

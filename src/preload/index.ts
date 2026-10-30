@@ -1,6 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Api, Snapshot } from '../shared/types'
 const api: Api = {
+  updateInfo: () => ipcRenderer.invoke('changli:update-info'),
+  checkUpdates: () => ipcRenderer.invoke('changli:update-check'),
+  openReleases: () => ipcRenderer.invoke('changli:update-open'),
+  desktopPreferences: () => ipcRenderer.invoke('changli:desktop-preferences'),
+  saveDesktopPreferences: value => ipcRenderer.invoke('changli:desktop-save', value),
+  hideWindow: () => ipcRenderer.invoke('changli:window-hide'),
+  quitApp: () => ipcRenderer.invoke('changli:app-quit'),
+  renameConversation: value => ipcRenderer.invoke('changli:conversation-rename', value),
+  deleteConversation: id => ipcRenderer.invoke('changli:conversation-delete', id),
+  searchConversations: query => ipcRenderer.invoke('changli:conversation-search', query),
+  exportConversation: id => ipcRenderer.invoke('changli:conversation-export', id),
+  backupData: () => ipcRenderer.invoke('changli:data-backup'),
+  prepareRestore: () => ipcRenderer.invoke('changli:data-prepare-restore'),
+  restoreData: token => ipcRenderer.invoke('changli:data-restore', token),
+  cancelRestore: () => ipcRenderer.invoke('changli:data-cancel-restore'),
   workspace: () => ipcRenderer.invoke('changli:workspace'),
   saveMemory: value => ipcRenderer.invoke('changli:memory-save', value),
   deleteMemory: id => ipcRenderer.invoke('changli:memory-delete', id),

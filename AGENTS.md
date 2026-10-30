@@ -47,4 +47,10 @@
 
 ## 当前工程状态
 
-v0.1.0 预览版已在 lchangli/changli-desktop-agent 开源并通过 GitHub Release 发布 Windows ZIP/便携 EXE；核心、桌面、独立程序、便携包装及云端发布流程均通过。命令与后续发版方式见 README、docs/RELEASING.md。保留现有数据和授权；开发/正式目录独立，不自动迁移用户数据。用户已反馈真实 API 与此前建议检查通过，但不得把模拟流、SSE 夹具或启动桩当成真实供应商/应用实测证据。具体记录见 PLAN 与 VERIFICATION。
+v0.1.0 预览版已在 ichangli/changli-desktop-agent 开源并通过 GitHub Release 发布 Windows ZIP/便携 EXE；核心、桌面、独立程序、便携包装及云端发布流程均通过。命令与后续发版方式见 README、docs/RELEASING.md。保留现有数据和授权；开发/正式目录独立，不自动迁移用户数据。用户已反馈真实 API 与此前建议检查通过，但不得把模拟流、SSE 夹具或启动桩当成真实供应商/应用实测证据。具体记录见 PLAN 与 VERIFICATION。
+
+## 当前发布约束与增量
+
+2026-10-30 用户在前两项本地开发完成后，明确要求开始第三项检查更新，并在完成后上传 GitHub；该新指令解除此前暂不上传的约束。本轮可上传已验证的三项增量并发布 v0.2.0-beta.1 预览版；不自动扩大为其他功能、私有数据迁移或主题改造。代码、发行包和真实远端验证需分开记录。仓库现名为 ichangli/changli-desktop-agent（原地址会跳转），appId 与用户数据目录保持兼容。
+
+本轮范围为 PRD AC-22～AC-36：会话管理/备份、桌面常驻、应用内手动检查更新并打开固定仓库下载页。不实现自动下载/安装、语音、主题或全局快捷键。

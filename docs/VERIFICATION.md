@@ -28,7 +28,7 @@
 | AC-18 | 部分验证 | 假密钥不回传 renderer，SQLite/WAL 无假密钥明文，前端不含测试密钥；设置页解释云端数据范围。无真实密钥用于测试；未审计外部供应商存储行为。 |
 | AC-19 | 部分验证，另有用户反馈 | 夹具聊天 → 记忆 → 重启 → 真实硬件查询/记录恢复已在桌面验证；用户反馈此前建议检查通过，但未记录包含全部环节的单次真实链路结果。 |
 | AC-20 | 开发及独立发行包本机通过 | check/build/dev/桌面启停已运行；独立目录、实际 ZIP 解压程序与单文件便携 EXE 均经启动检查，版本资源与本地页面正常，默认无自启。尚未验证其他 Windows 版本，发行文件未签名。 |
-| AC-21 | 通过 | 公开仓库 lchangli/changli-desktop-agent 已上传源码及 MIT 许可证。两次 Windows CI 通过；v0.1.0 标签触发的 Windows Release 构建及发布任务通过，ZIP/便携 EXE/SHA256SUMS 已公开，附件 digest 与下载的校验清单一致。 |
+| AC-21 | 通过 | 公开仓库 ichangli/changli-desktop-agent 已上传源码及 MIT 许可证。两次 Windows CI 通过；v0.1.0 标签触发的 Windows Release 构建及发布任务通过，ZIP/便携 EXE/SHA256SUMS 已公开，附件 digest 与下载的校验清单一致。 |
 
 可复查截图在忽略目录 `test-results/chat.png`、`settings.png`、`memory.png`、`tools.png`；仅包含测试夹具内容与本机采样，非真实用户对话。
 
@@ -42,4 +42,31 @@
 
 2026-10-29 本机发行验证通过：`npm test` 14 项、类型检查/构建、Electron 桌面回归、`npm run test:packaged`、实际 ZIP 解压程序检查和单文件便携 EXE 检查。ASAR 不含 src/tests/runtime/数据库等，程序在设置恶意开发服务器环境变量时仍只加载内置页面；人设独立资源存在。两会话、记忆、假密钥重启恢复与真实硬件采样通过；便携包装正常解压、完成模拟回复、落盘并退出。公开文件扫描通过，运行数据及下载工具不在 Git 清单内；生产依赖审计报告 0 个已知漏洞。正式版数据目录与开发版分开，不自动读取或迁移私人运行数据。构建资源曾遇到网络重置，改为从官方 URL 下载并核对包内 SHA-256 后缓存再构建，没有关闭校验。
 
-远端验证：[Windows CI](https://github.com/lchangli/changli-desktop-agent/actions/runs/40833361515) 通过；[v0.1.0 发布流程](https://github.com/lchangli/changli-desktop-agent/actions/runs/40833370858) 构建与发布全部通过（包含实际独立 EXE 和便携包装启动测试）。[预览版 Release](https://github.com/lchangli/changli-desktop-agent/releases/tag/v0.1.0) 已公开三份附件：便携 EXE 111599644 字节、ZIP 156421695 字节和 SHA256SUMS.txt。通过 API 确认 isDraft=false、isPrerelease=true、附件均 uploaded，并将两份发行文件的 GitHub SHA-256 digest 与下载的清单逐项核对通过。Release 附件由标签对应的云端构建生成，不用本机产物替代远端验证。
+远端验证：[Windows CI](https://github.com/ichangli/changli-desktop-agent/actions/runs/40833361515) 通过；[v0.1.0 发布流程](https://github.com/ichangli/changli-desktop-agent/actions/runs/40833370858) 构建与发布全部通过（包含实际独立 EXE 和便携包装启动测试）。[预览版 Release](https://github.com/ichangli/changli-desktop-agent/releases/tag/v0.1.0) 已公开三份附件：便携 EXE 111599644 字节、ZIP 156421695 字节和 SHA256SUMS.txt。通过 API 确认 isDraft=false、isPrerelease=true、附件均 uploaded，并将两份发行文件的 GitHub SHA-256 digest 与下载的清单逐项核对通过。Release 附件由标签对应的云端构建生成，不用本机产物替代远端验证。
+
+## 2026-10-30 会话管理与备份（仅本地增量）
+
+- `npm test`：19 项通过（原 14 项及新增 5 项）。新增检查改名/字面搜索、关联删除、空会话自定名称、导出状态、备份字段排除、恢复新 ID 与记忆来源、生成中回复转中断、重复恢复阻断、结构/版本/关联错误拒绝、记忆上限、数据库触发器模拟失败时事务回滚。
+- `npm run check` / 构建通过。原有 `node tests/electron.mjs` 回归通过；扩展受限 preload 接口后同步更新原有接口白名单断言，无任意 IPC/路径能力。
+- `node tests/data-electron.mjs`：实际 Electron 窗口完成改名、正文搜索/消息定位、Markdown 导出、JSON 备份、保存取消、损坏文件拒绝、恢复预览取消/失效 token、确认导入、重复导入拒绝、删除取消/确认、重启持久化。生成中删除经 IPC 拒绝。使用临时数据和原生对话框桩，文件实际落盘并核对内容，未读写用户数据或调用真实模型。
+- 截图位于忽略目录 `test-results/data-management-chat.png`、`data-management-backup.png`，仅含虚构测试内容。
+- 本轮不推送、不上传、不发布 GitHub。已有 v0.1.0 发行附件未改变；新功能暂从源码本地运行，版本号保持 0.1.0，未把本地检查记作云端验证。
+
+## 2026-10-30 桌面常驻与明确退出（仅本地增量）
+
+- `npm test` 19 项、`npm run test:e2e`（含类型检查/构建、原有会话与工具回归、数据管理回归、新增托盘回归）通过。
+- `tests/desktop-electron.mjs` 使用独立临时目录和真实 Electron Tray/Menu。测试入口仅记录真实对象，模拟托盘初始化失败；产品未加入调试接口。通过设置保存/重启、主动隐藏、关闭到托盘、隐藏时模拟回复继续完成并落盘、真实第二进程经单实例锁唤回、最小化恢复、图标点击/双击事件与菜单回调、托盘退出/界面确认退出/app.quit 实际结束进程、退出中断状态恢复、托盘失败保留窗口并允许关窗退出、非法配置拒绝。
+- 图标点击/菜单项通过真实对象事件与回调触发，没有自动点击 Windows 通知区域；单实例唤回实际启动第二进程。未实际注销/关机，系统事件仅实现退出偏好旁路，不能把它记作关机实测。
+- `npm run pack:win`（`--publish never`）与 `npm run test:packaged` 通过。真实独立 EXE 中检查托盘可用、偏好保存、关闭隐藏、唤回与明确退出、重启后偏好保留，并回归本地页面/人设/会话/记忆/假凭据/硬件采样。没有构建或上传新版便携包装、ZIP，旧发行附件不变。
+- 查看 `test-results/desktop-settings.png` 完成布局检查，仅含虚构内容。`npm run check:public`、`git diff --check` 通过。无新依赖、无真实模型调用、未启动用户应用、未添加开机自启、未推送或发布 GitHub。
+
+## 2026-10-30 v0.2.0-beta.1 检查更新与发布准备
+
+用户明确要求第三项完成后上传 GitHub，解除此前暂不上传约束。本版汇总会话管理/备份、桌面常驻与手动检查更新，尚未把发布准备记作远端完成。
+
+- `npm test` 24 项通过；新增 5 项覆盖数字/预览/正式版本比较、草稿/非法标签/无附件过滤、说明截断、固定请求与下载页、无认证头/数据发送、并发请求合并、较新本地版、空列表、HTTP/限流/损坏/超量响应、网络失败重试和实际等待 15 秒超时。
+- `npm run test:e2e` 通过（含构建/类型检查及原有、数据管理、托盘和更新页四组 Electron 回归）。更新页使用明确标识的网络/浏览器桩：打开页面不自动联网，新版本/较新本地版/限流/空列表均正确，远端说明按纯文本呈现，恶意 HTML/远端 URL 不执行或打开。
+- 使用临时数据目录启动真实 Electron，经 `net.fetch` 实际访问 GitHub 公共发布 API，通过：本地版本 `0.2.0-beta.1`，读取已发布 `v0.1.0`，提示本地版本不低于发布版本。未发起模型请求或读取用户数据。发现旧仓库账号 lchangli 到 ichangli 的重定向，更新规范地址并保留拒绝重定向；修复开发入口 `app.getVersion` 返回 Electron 版本的问题，开发读取项目版本、正式包读取应用版本。
+- 更新页布局截图 `test-results/updates.png` 已查看，仅含测试夹具信息。公开文件扫描与 `git diff --check` 通过，本地下载的官方长离图片与工具仍在忽略目录，不进入源码或发行包。
+
+- 本地发行验证通过：`npm run dist:win` 生成 v0.2.0-beta.1 ZIP/便携 EXE；`npm run test:packaged` 检查真实独立程序、资源/数据恢复/托盘及正式版本号；`npm run test:portable` 检查实际包装解压、启动、受限桥、回复落盘与正常退出。公开文件扫描和暂存差异检查通过，远端构建/发布待上传标签后核对。
