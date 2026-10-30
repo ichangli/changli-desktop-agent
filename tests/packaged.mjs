@@ -119,7 +119,7 @@ try {
   expect(memories).toHaveLength(1)
   expect(memories[0].content).toBe('打包回归夹具：技术回答先给结论')
 
-  await page.getByRole('button', { name: '电脑工具', exact: false }).click()
+  await page.getByRole('button', { name: '工具', exact: false }).click()
   await page.getByRole('button', { name: '查询电脑状态', exact: true }).click()
   await expect(page.locator('.tool-status').first()).toHaveText('成功')
   const record = (await api(page, 'workspace')).tools[0]

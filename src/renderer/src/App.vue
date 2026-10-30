@@ -8,14 +8,10 @@ const workspace = ref<Workspace>({ memories: [], apps: [], tools: [] })
 const memoryForm = ref<MemoryInput>({ content: '', category: 'fact' })
 const deleting = ref('')
 const updateInfo = ref<UpdateInfo>()
-async function openUpdates() { await action(async () => { updateInfo.value = await api.updateInfo(); page.value = 'updates' }) }
 async function checkUpdates() { await action(async () => { try { updateInfo.value = await api.checkUpdates() } finally { updateInfo.value = await api.updateInfo() } }) }
 
 const desktopPreferences = ref<DesktopPreferences>({ closeAction: 'quit', trayAvailable: false })
 const quitting = ref(false)
-async function openDesktop() {
-  await action(async () => { desktopPreferences.value = await api.desktopPreferences(); quitting.value = false; page.value = 'desktop' })
-}
 const searchQuery = ref(''), searchResults = ref<SearchHit[] | null>(null), matchedMessage = ref('')
 const conversationTitle = ref(''), editingConversation = ref(false), deletingConversation = ref(false)
 const restorePreview = ref<RestorePreview | null>(null)
@@ -32,7 +28,19 @@ async function refreshSearch() { if (searchResults.value !== null) searchResults
 const editingAppId = ref(''), appNameDraft = ref('')
 function editAppName(app: AllowedApp) { editingAppId.value = app.id; appNameDraft.value = app.name }
 function appName(id: string) { return workspace.value.apps.find(app => app.id === id)?.name ?? (id ? '已配置应用' : '') }
-const title = computed(() => ({ chat: '与长离对话', settings: '连接设置', memory: '明确记忆', tools: '电脑工具', data: '数据管理', desktop: '桌面设置', updates: '版本更新' })[page.value])
+const settingsTabs = [{ id: 'settings', label: '模型连接' }, { id: 'desktop', label: '窗口与托盘' }, { id: 'data', label: '数据与备份' }, { id: 'updates', label: '关于与更新' }] as const
+const inSettings = computed(() => settingsTabs.some(tab => tab.id === page.value))
+function switchSettings(id: typeof settingsTabs[number]['id']) { page.value = id; notice.value = ''; quitting.value = false }
+async function tabKey(event: KeyboardEvent, index: number) {
+  let next = index
+  if (event.key === 'ArrowRight') next = (index + 1) % settingsTabs.length
+  else if (event.key === 'ArrowLeft') next = (index + settingsTabs.length - 1) % settingsTabs.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = settingsTabs.length - 1
+  else return
+  event.preventDefault(); switchSettings(settingsTabs[next].id); await nextTick(); document.getElementById('settings-tab-' + settingsTabs[next].id)?.focus()
+}
+const title = computed(() => inSettings.value ? '设置' : ({ chat: '与长离对话', settings: '连接设置', memory: '明确记忆', tools: '电脑工具', data: '数据管理', desktop: '桌面设置', updates: '版本更新' })[page.value])
 const proposal = computed(() => {
   const message = state.value?.messages.findLast(m => m.role === 'user')
   if (!message || workspace.value.memories.some(m => m.source === '会话消息：' + message.id)) return null
@@ -68,7 +76,15 @@ async function action(fn: () => Promise<unknown>) {
   finally { pending.value = false }
 }
 async function send() { const text = draft.value; await action(async () => { await api.send(text); draft.value = '' }) }
-function openSettings() { if (!state.value) return; form.value = { ...state.value.settings, key: '', clearKey: false }; page.value = 'settings'; notice.value = '' }
+async function openSettings() {
+  if (!state.value) return
+  await action(async () => {
+    desktopPreferences.value = await api.desktopPreferences()
+    updateInfo.value = await api.updateInfo()
+    form.value = { ...state.value!.settings, key: '', clearKey: false }
+    quitting.value = false; page.value = 'settings'
+  })
+}
 let unsubscribe: (() => void) | undefined
 onMounted(() => { void api.updateInfo().then(value => { updateInfo.value = value }); unsubscribe = api.onChange(apply); void action(async () => apply(await api.snapshot())) })
 onUnmounted(() => unsubscribe?.())
@@ -83,10 +99,11 @@ onUnmounted(() => unsubscribe?.())
       <form class="history-search" @submit.prevent="searchHistory"><input v-model="searchQuery" maxlength="200" aria-label="搜索历史" placeholder="搜索名称或聊天内容"><button :disabled="pending">搜索</button><button v-if="searchResults !== null" type="button" @click="clearSearch">清除</button></form>
       <p v-if="searchResults !== null" class="search-summary">找到 {{ searchResults.length }} 段会话（最多 100 段）</p>
       <nav aria-label="对话记录"><template v-if="searchResults !== null"><button v-for="hit in searchResults" :key="hit.sessionId" @click="action(() => openConversation(hit.sessionId, hit.messageId))"><span>{{ hit.title }}</span><small>{{ hit.excerpt || '名称匹配' }}</small></button></template><template v-else><button v-for="c in state?.conversations" :key="c.id" :class="{ selected: state?.selectedId === c.id && page === 'chat' }" @click="action(() => openConversation(c.id))">{{ c.title }}</button></template></nav>
-      <div class="aside-bottom"><div class="local">● 会话保存在本机</div><button class="settings-link" @click="page = 'memory'">◇ 明确记忆</button><button class="settings-link" @click="page = 'tools'">⌘ 电脑工具</button><button class="settings-link" @click="page = 'data'">▣ 数据管理</button><button class="settings-link" @click="openDesktop">▣ 桌面设置</button><button class="settings-link" @click="openUpdates">↻ 版本更新</button><button class="settings-link" @click="openSettings">⚙ 连接设置</button></div>
+      <div class="aside-bottom" aria-label="主导航"><button class="settings-link" :class="{ selected: page === 'memory' }" :aria-current="page === 'memory' ? 'page' : undefined" @click="page = 'memory'">◇ 记忆</button><button class="settings-link" :class="{ selected: page === 'tools' }" :aria-current="page === 'tools' ? 'page' : undefined" @click="page = 'tools'">⌘ 工具</button><button aria-label="设置" class="settings-link" :class="{ selected: inSettings }" :aria-current="inSettings ? 'page' : undefined" :disabled="pending" @click="openSettings">⚙ 设置</button></div>
     </aside>
     <main>
       <header><div><h1>{{ title }}</h1><p>{{ page === 'chat' ? '片刻闲谈，亦可慢慢说来。' : '由你决定保存的内容与允许的操作' }}</p></div><span class="mode">{{ state?.settings.mode === 'chat-completions' ? '模型接口 · ' + state.settings.model : '模拟模式 · 未连接模型' }}</span></header>
+      <div v-if="inSettings" class="settings-tabs" role="tablist" aria-label="设置分类"><button v-for="(tab, index) in settingsTabs" :id="'settings-tab-' + tab.id" :key="tab.id" role="tab" :aria-selected="page === tab.id" aria-controls="settings-content" :tabindex="page === tab.id ? 0 : -1" :disabled="pending" @click="switchSettings(tab.id)" @keydown="tabKey($event, index)">{{ tab.label }}</button></div>
       <div v-if="notice" class="notice" role="alert">{{ notice }}</div>
       <div v-if="state?.fault" class="notice" role="alert">{{ state.fault }}</div>
       <template v-if="page === 'chat'">
@@ -95,7 +112,7 @@ onUnmounted(() => unsubscribe?.())
           <template v-else><strong>{{ state?.conversations.find(c => c.id === state?.selectedId)?.title }}</strong><button :disabled="pending" @click="conversationTitle = state?.conversations.find(c => c.id === state?.selectedId)?.title || ''; editingConversation = true; deletingConversation = false">重命名会话</button><button :disabled="pending || !!state?.activeId" @click="action(async () => { notice = await api.exportConversation(state!.selectedId) })">导出聊天</button><button :disabled="pending || !!state?.activeId" @click="deletingConversation = true">删除会话</button></template>
           <div v-if="deletingConversation" class="delete-confirm">删除当前会话及其工具记录？已保存的长期记忆会保留。此操作无法撤销。<button :disabled="pending || !!state?.activeId" @click="action(async () => { await apply(await api.deleteConversation(state!.selectedId)); deletingConversation = false; await refreshSearch() })">确认删除会话</button><button @click="deletingConversation = false">保留会话</button></div>
         </div>
-        <div v-if="state?.settings.mode === 'demo'" class="demo">当前回复由本地模拟器生成，仅用于验证交互和保存。可在连接设置中配置真实模型。</div>
+        <div v-if="state?.settings.mode === 'demo'" class="demo">当前回复由本地模拟器生成，仅用于验证交互和保存。可在设置的“模型连接”中配置真实模型。</div>
         <div v-if="proposal" class="demo">检测到明确记忆请求，请确认类别和内容后保存。<button @click="offerMemory">确认记忆内容</button></div>
         <div ref="feed" class="feed" aria-live="polite">
           <div v-if="!state?.messages.length" class="welcome"><div class="large-seal">离</div><h2>此刻，有什么想说的？</h2><p>从一句问候开始，或聊聊今天的见闻。</p><span>文字聊天 · 本地记录</span></div>
@@ -109,7 +126,7 @@ onUnmounted(() => unsubscribe?.())
         <form class="composer" @submit.prevent="send"><textarea v-model="draft" aria-label="消息" maxlength="10000" placeholder="与长离说些什么…" :disabled="pending" @keydown.enter.exact="onEnter"></textarea><div class="composer-bottom"><span>Enter 发送 · Shift + Enter 换行</span><button v-if="state?.activeId" type="button" class="primary" :disabled="pending" @click="action(() => api.stop())">停止生成</button><button v-else class="primary" :disabled="pending || !draft.trim() || !state">发送 ↑</button></div></form>
         <footer>记忆由你确认保存 · 操作以电脑工具记录为准</footer>
       </template>
-      <section v-else-if="page === 'settings'" class="settings-panel">
+      <section v-else-if="page === 'settings'" id="settings-content" class="settings-panel" role="tabpanel" :aria-labelledby="'settings-tab-' + page">
         <h2>模型连接</h2><p>云端模式会将近期消息、选中记忆、相关工具结果、已配置应用的名称/ID/授权状态与角色提示发送给你配置的服务；不发送应用启动路径。本地模拟不发网络请求。</p>
         <form @submit.prevent="action(async () => { await apply(await api.saveSettings({ ...form })); form.key = ''; form.clearKey = false; notice = '连接设置已保存。' })">
           <div class="buttons"><button type="button" :disabled="pending || !!state?.activeId" @click="useDeepseekPreset">使用 DeepSeek 预设</button></div>
@@ -136,15 +153,15 @@ onUnmounted(() => unsubscribe?.())
         <div class="record" v-for="m in workspace.memories" :key="m.id"><strong>{{ m.category === 'fact' ? '现实事实 / 偏好' : '角色互动约定' }}</strong><p class="record-content">{{ m.content }}</p><small>来源：{{ m.source }} · 更新 {{ new Date(m.updatedAt).toLocaleString('zh-CN') }}</small><div class="buttons"><button @click="editMemory(m)">编辑</button><button v-if="deleting !== m.id" @click="deleting = m.id">删除</button><template v-else><button @click="action(async () => { workspace = await api.deleteMemory(m.id); deleting = ''; if (memoryForm.id === m.id) editMemory() })">确认删除这条记忆</button><button @click="deleting = ''">保留</button></template></div></div>
         <p v-if="!workspace.memories.length">尚未保存长期记忆。</p>
       </section>
-      <section v-else-if="page === 'updates'" class="settings-panel">
+      <section v-else-if="page === 'updates'" id="settings-content" class="settings-panel" role="tabpanel" :aria-labelledby="'settings-tab-' + page">
         <h2>检查新版本</h2><p>当前版本：<strong>{{ updateInfo?.currentVersion }}</strong></p>
         <p>点击检查时才会连接 GitHub，读取本项目最近 20 个发布记录（含预览版）。不发送聊天、记忆、模型配置或 API 密钥。下载和替换程序由你手动完成。</p>
         <div class="buttons"><button class="primary" :disabled="pending" @click="checkUpdates">{{ pending ? '检查中…' : '检查更新' }}</button><button :disabled="pending" @click="action(() => api.openReleases())">前往 GitHub 下载</button></div>
         <div v-if="updateInfo && ['available', 'current', 'empty'].includes(updateInfo.status)" class="record" role="status"><strong>{{ updateInfo.status === 'available' ? '发现新版本' : updateInfo.status === 'current' ? '当前版本不低于已发布版本' : '暂未找到可下载的发布版本' }}</strong><p v-if="updateInfo.release">已发布版本：{{ updateInfo.release.version }} · {{ updateInfo.release.prerelease ? '预览版' : '正式版' }}<span v-if="updateInfo.release.publishedAt"> · {{ new Date(updateInfo.release.publishedAt).toLocaleString('zh-CN') }}</span></p><small>检查时间：{{ new Date(updateInfo.checkedAt).toLocaleString('zh-CN') }}</small></div>
         <div v-if="updateInfo?.release" class="record"><h2>更新说明</h2><pre>{{ updateInfo.release.notes || '该版本未提供更新说明，可前往 GitHub 查看。' }}</pre></div>
-        <p>退出旧程序后，再使用新版程序。会话等数据保存在独立用户目录中，替换程序不需要删除数据目录；更新前也可以在“数据管理”备份聊天与记忆。</p>
+        <p>退出旧程序后，再使用新版程序。会话等数据保存在独立用户目录中，替换程序不需要删除数据目录；更新前也可以在“数据与备份”备份聊天与记忆。</p>
       </section>
-      <section v-else-if="page === 'desktop'" class="settings-panel">
+      <section v-else-if="page === 'desktop'" id="settings-content" class="settings-panel" role="tabpanel" :aria-labelledby="'settings-tab-' + page">
         <h2>窗口与系统托盘</h2><p>托盘位于 Windows 任务栏通知区域，图标可能收在“隐藏的图标”中。单击或双击图标可唤回窗口，右键可显示、隐藏或退出。</p>
         <p v-if="!desktopPreferences.trayAvailable" role="status">系统托盘当前不可用，无法隐藏窗口；关闭窗口会直接退出。</p>
         <form @submit.prevent="action(async () => { desktopPreferences = await api.saveDesktopPreferences({ closeAction: desktopPreferences.closeAction }); notice = '桌面设置已保存。' })">
@@ -156,8 +173,8 @@ onUnmounted(() => unsubscribe?.())
         <div v-if="quitting" class="record"><p>确认退出长离？正在生成的回复将中断，尚未提交的后续工具调用将停止，已提交系统的操作无法保证撤回。</p><div class="buttons"><button :disabled="pending" @click="action(() => api.quitApp())">确认退出程序</button><button @click="quitting = false">继续使用</button></div></div>
         <p>此设置只影响关闭窗口的行为，不会添加开机自启。每次手动启动仍显示主窗口。</p>
       </section>
-      <section v-else-if="page === 'data'" class="settings-panel">
-        <h2>聊天与记忆备份</h2><p>备份包含所有会话、消息与明确记忆，以明文 JSON 保存。文件可能包含私人内容，请妥善保管。API 密钥、连接设置、应用配置与授权、工具执行记录均不包含在内。</p>
+      <section v-else-if="page === 'data'" id="settings-content" class="settings-panel" role="tabpanel" :aria-labelledby="'settings-tab-' + page">
+        <h2>聊天与记忆备份</h2><p>会话保存在本机。聊天、记忆与设置保存在独立用户目录中。</p><p>备份包含所有会话、消息与明确记忆，以明文 JSON 保存。文件可能包含私人内容，请妥善保管。API 密钥、连接设置、应用配置与授权、工具执行记录均不包含在内。</p>
         <div class="buttons"><button :disabled="pending || !!state?.activeId" @click="action(async () => { notice = await api.backupData() })">备份聊天与记忆</button><button :disabled="pending || !!state?.activeId" @click="action(async () => { restorePreview = await api.prepareRestore() })">选择备份恢复</button></div>
         <p>恢复会新增会话副本，保留现有会话和记忆；相同类别与内容的记忆会跳过。未完成回复标为中断，不会执行历史操作。记忆总量最多 100 条，备份文件最多 50 MiB。</p>
         <div v-if="restorePreview" class="record"><h2>确认恢复</h2><p>文件包含 {{ restorePreview.conversations }} 段会话、{{ restorePreview.messages }} 条消息、{{ restorePreview.memories }} 条记忆。确认后导入；现有连接和应用授权保持不变。</p><div class="buttons"><button :disabled="pending || !!state?.activeId" @click="action(async () => { notice = await api.restoreData(restorePreview!.token); restorePreview = null; await apply(await api.snapshot()); await refreshSearch() })">确认导入副本</button><button :disabled="pending" @click="action(async () => { await api.cancelRestore(); restorePreview = null })">取消恢复</button></div></div>

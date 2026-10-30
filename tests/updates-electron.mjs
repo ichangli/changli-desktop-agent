@@ -17,7 +17,7 @@ try {
   app = await electron.launch({ args: [launcher], env })
   const page = await app.firstWindow(), errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.getByRole('button', { name: '版本更新', exact: false }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click(); await page.getByRole('tab', { name: '关于与更新', exact: true }).click()
   expect(await app.evaluate(() => global.__updateRequests.length)).toBe(0)
   await expect(page.locator('.settings-panel')).toContainText(version)
   await page.getByRole('button', { name: '前往 GitHub 下载', exact: true }).click()
