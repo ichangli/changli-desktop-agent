@@ -70,3 +70,13 @@
 - 更新页布局截图 `test-results/updates.png` 已查看，仅含测试夹具信息。公开文件扫描与 `git diff --check` 通过，本地下载的官方长离图片与工具仍在忽略目录，不进入源码或发行包。
 
 - 本地发行验证通过：`npm run dist:win` 生成 v0.2.0-beta.1 ZIP/便携 EXE；`npm run test:packaged` 检查真实独立程序、资源/数据恢复/托盘及正式版本号；`npm run test:portable` 检查实际包装解压、启动、受限桥、回复落盘与正常退出。公开文件扫描和暂存差异检查通过，远端构建/发布待上传标签后核对。
+
+### v0.2.0-beta.1 远端交付结果
+
+- 代码与标签提交：`f4c111bbac89e5ceb015d789295941126b6b2f06`；源码已推送到规范仓库 `ichangli/changli-desktop-agent`，未移动旧标签或覆盖旧发行文件。
+- [Windows CI](https://github.com/ichangli/changli-desktop-agent/actions/runs/40982602590) 通过；[Windows Release](https://github.com/ichangli/changli-desktop-agent/actions/runs/40982607960) 的 Windows 构建与独立发布任务均通过，含 24 项核心、四组桌面、实际独立 EXE 和便携包装启动检查。
+- [v0.2.0-beta.1 Release](https://github.com/ichangli/changli-desktop-agent/releases/tag/v0.2.0-beta.1) 已公开（draft=false、prerelease=true），发行说明已更新为本版本中文变更与手动更新方法。
+- 便携 EXE：111588713 字节，SHA-256 `d0b203f5bdc1839d3154e72e33ed94f83e137a67a9c0aafc8a8838e4ee0fa02c`。
+- ZIP：156430999 字节，SHA-256 `18318540a33c6dd88896f42940e34f74e24e9eca96180016310099e2a3028a56`。
+- 已下载远端 SHA256SUMS.txt，将其自身哈希与附件 digest、清单中两项哈希与对应发行附件的 GitHub digest 逐项核对通过。发行附件来自云端构建，没有用本地文件替代。
+- 发布后再次用临时数据目录运行真实应用检查更新，通过：当前 `0.2.0-beta.1`、已发布 `v0.2.0-beta.1`、状态 current。未使用真实 API 密钥、聊天或应用授权。图标/系统注销等未覆盖的边界仍以此前记录为准。

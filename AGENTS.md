@@ -47,7 +47,7 @@
 
 ## 当前工程状态
 
-v0.1.0 预览版已在 ichangli/changli-desktop-agent 开源并通过 GitHub Release 发布 Windows ZIP/便携 EXE；核心、桌面、独立程序、便携包装及云端发布流程均通过。命令与后续发版方式见 README、docs/RELEASING.md。保留现有数据和授权；开发/正式目录独立，不自动迁移用户数据。用户已反馈真实 API 与此前建议检查通过，但不得把模拟流、SSE 夹具或启动桩当成真实供应商/应用实测证据。具体记录见 PLAN 与 VERIFICATION。
+v0.2.0-beta.1 已上传源码并通过 GitHub Windows CI/Release 发布 ZIP、便携 EXE 与 SHA-256 校验清单。24 项核心、四组桌面、独立程序与便携包装检查通过；实际 GitHub 版本检查成功。具体记录见 PLAN 与 VERIFICATION。保留既有独立数据目录和授权；用户真实模型自测反馈与网络/浏览器/应用启动测试桩分别记录，不把桩当真实供应商或应用操作实测。
 
 ## 当前发布约束与增量
 
